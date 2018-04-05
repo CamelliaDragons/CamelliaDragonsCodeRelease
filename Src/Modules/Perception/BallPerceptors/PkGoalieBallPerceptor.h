@@ -79,16 +79,14 @@ cv::Ptr<cv::BackgroundSubtractorMOG2> pMOG2;
 
 
 float magnification = 2;
-bool che = false;
+bool chk = false;
 bool LowerBall = false;
 int BallFrame=30;
 
 private:
   void update(RealisticBallPercepts& ballPercepts);
 
-
   void cleanup();
-
 
   bool validatePerceptPreField(const RealisticBallPercept& ballPercept) const;
   bool calculateBallOnField(RealisticBallPercept& ballPercept) const;

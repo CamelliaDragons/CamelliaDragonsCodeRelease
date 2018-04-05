@@ -1,12 +1,12 @@
-#include "RealisticBallPerceptor.h"
+#include "CascadePerceptor.h"
 #include "Tools/Debugging/DebugDrawings.h"
 #include "Tools/Debugging/Stopwatch.h"
 #include "Tools/Math/BHMath.h"
 #include "Tools/Math/Eigen.h"
 #include "Tools/Math/Transformation.h"
 #include "Platform/SystemCall.h"
-#include <algorithm>
 #include "Representations/Infrastructure/Image.h"
+#include <algorithm>
 #include <time.h>
 #include <sys/time.h>
 
@@ -14,17 +14,17 @@ using namespace std;
 using namespace cv;
 
 
-MAKE_MODULE(RealisticBallPerceptor, perception)
+MAKE_MODULE(CascadePerceptor, perception)
 
-void RealisticBallPerceptor::update(RealisticBallPercepts& ballPercepts)
+void CascadePerceptor::update(RealisticBallPercepts& ballPercepts)
 {
-    if(che==false){
-    	string configDirectory;
+    if(chk==false){
+        string configDirectory;
 		char currentWorkingDirectory[1024];
 
 		configDirectory = "";
 
-		if (SystemCall::getMode() == SystemCall::simulatedRobot)
+		if(SystemCall::getMode() == SystemCall::simulatedRobot)
 		{
 			if (getcwd(currentWorkingDirectory,1024)) {;}
 
@@ -32,27 +32,25 @@ void RealisticBallPerceptor::update(RealisticBallPercepts& ballPercepts)
 			configDirectory = configDirectory.substr(0,configDirectory.rfind("/")) + "/";
 			configDirectory = configDirectory + "Cascade/";
 		}
-		else configDirectory = "Config/Cascade/";
+		else
+            configDirectory = "Config/Cascade/";
 		ball_upper_cascade = configDirectory + "cascade.xml";
 		ball_lower_cascade = configDirectory + "cascade.xml";
 
 		upper_cascade.load(ball_upper_cascade);
 		lower_cascade.load(ball_lower_cascade);
-		che=true;
-		    
+		chk=true;
+
     }
 
-
-    
     const float minDistanceFromLineSquared = sqr(minDistanceFromLine);
     const float centerCircleRadiusSquared = sqr(theFieldDimensions.centerCircleRadius);
-    
 
     if(LowerBall == false || theCameraInfo.camera == CameraInfo::Camera::lower)
     {
         LowerBall = false;
         bool find = false;
-        
+
         ballPercepts.balls.clear();
         for(const Boundaryi& region : theBallRegions.regions)
         {
@@ -75,21 +73,21 @@ void RealisticBallPerceptor::update(RealisticBallPercepts& ballPercepts)
 		        RegionB = std::min((int(region.y.getSize()*magnification_lower+region.y.min+region.y.max)/2), theCameraInfo.height-1);
             }
             int BlackCount = 0;
-             LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionR , RegionT, 1 , Drawings::solidPen, ColorRGBA::blue);
-                    LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionL , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
-                    LINE("module:RealisticBallPerceptor:square", RegionR , RegionT, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
-                    LINE("module:RealisticBallPerceptor:square", RegionL, RegionB, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
-             
+            LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionR , RegionT, 1 , Drawings::solidPen, ColorRGBA::blue);
+            LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionL , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
+            LINE("module:RealisticBallPerceptor:square", RegionR , RegionT, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
+            LINE("module:RealisticBallPerceptor:square", RegionL , RegionB, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
+
             Mat src_img(RegionB-RegionT, RegionR-RegionL, CV_8UC3);
             Mat src_BGR;
-            
+
             for(unsigned short x = (unsigned short) RegionL; x < RegionR; x++)
             {
                 for(unsigned short y = (unsigned short) RegionT; y < RegionB; y++)
                 {
                     if(theECImage.colored[y][x]==FieldColors::black)
                         BlackCount ++;
-                        
+
                     unsigned char Y, Cr, Cb;
                     Image::Pixel current = theImage.getFullSizePixel(y, x);
                     Y=(unsigned char)current.y;
@@ -98,7 +96,7 @@ void RealisticBallPerceptor::update(RealisticBallPercepts& ballPercepts)
                     src_img.at<Vec3b>(y-RegionT,x-RegionL)=Vec3b(Y,Cr,Cb);
                 }
             }
-            
+
 
 	        vector<Rect>BALL;
             cvtColor(src_img, src_BGR, CV_YCrCb2BGR);
@@ -114,20 +112,20 @@ void RealisticBallPerceptor::update(RealisticBallPercepts& ballPercepts)
                 LINE("module:RealisticBallPerceptor:cascade", RegionL + iter->x , RegionT + iter->y, RegionL + iter->x , RegionT + iter->y + iter->height, 2 , Drawings::solidPen, ColorRGBA::red);
                 LINE("module:RealisticBallPerceptor:cascade", RegionL + iter->x + iter->width , RegionT + iter->y, RegionL + iter->x + iter->width , RegionT + iter->y + iter->height, 2 , Drawings::solidPen, ColorRGBA::red);
                 LINE("module:RealisticBallPerceptor:cascade", RegionL + iter->x, RegionT + iter->y + iter->height, RegionL + iter->x + iter->width , RegionT + iter->y + iter->height, 2 , Drawings::solidPen, ColorRGBA::red);
-                
+
                 int CenterX = RegionL + iter->x + iter->width/2;
                 int CenterY = RegionT + iter->y + iter->height/2;
-                
+
                 if(theCameraInfo.camera == CameraInfo::Camera::lower)
                     LowerBall = true;
                 ball.positionInImage.x() = CenterX;
                 ball.positionInImage.y() = CenterY;
                 ball.radiusInImage = iter->height - iter->width > 0 ? iter->width/2: iter->height/2;
-                
+
                 if(calculateBallOnField(ball)){
                     validatePerceptPreField(ball);
                     validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
-                    
+
                     ballPercepts.balls.push_back(ball);
                     find = 1;
                 }
@@ -135,12 +133,12 @@ void RealisticBallPerceptor::update(RealisticBallPercepts& ballPercepts)
             }
         }
     }
-    else ballPercepts.balls.clear();
+    else
+        ballPercepts.balls.clear();
 }
 
 
-
-bool RealisticBallPerceptor::calculateBallOnField(RealisticBallPercept& ballPercept) const
+bool CascadePerceptor::calculateBallOnField(RealisticBallPercept& ballPercept) const
 {
     Vector2f leftPosition = theImageCoordinateSystem.toCorrected(Vector2f(ballPercept.positionInImage.x() - ballPercept.radiusInImage, ballPercept.positionInImage.y()));
     Vector2f rightPosition = theImageCoordinateSystem.toCorrected(Vector2f(ballPercept.positionInImage.x() + ballPercept.radiusInImage, ballPercept.positionInImage.y()));
@@ -157,15 +155,12 @@ bool RealisticBallPerceptor::calculateBallOnField(RealisticBallPercept& ballPerc
              ballPercept.radiusOnField <= maxRadiusOnField);
         }
     }
-    
+
     return false;
 }
 
 
-
-
-
-bool RealisticBallPerceptor::validatePerceptPostField(const RealisticBallPercept& ball, float minDistanceFromLineSquared, float centerCircleRadiusSquared) const
+bool CascadePerceptor::validatePerceptPostField(const RealisticBallPercept& ball, float minDistanceFromLineSquared, float centerCircleRadiusSquared) const
 {
     LinesPercept::Line l;
     return theFieldDimensions.isInsideField(ball.absolutePositionOnField) &&
@@ -179,11 +174,11 @@ bool RealisticBallPerceptor::validatePerceptPostField(const RealisticBallPercept
        std::abs(ball.absolutePositionOnField.x() - theFieldDimensions.xPosOpponentPenaltyMark) >= minDistanceFromPenaltyMark)));
 }
 
-bool RealisticBallPerceptor::validatePerceptPreField(const RealisticBallPercept& ball) const
+bool CascadePerceptor::validatePerceptPreField(const RealisticBallPercept& ball) const
 {
     const int centerX = static_cast<int>(ball.positionInImage.x());
     const int centerY = static_cast<int>(ball.positionInImage.y());
-    
+
     if(centerX >= 0 &&
        centerX < theCameraInfo.width &&
        centerY > (theFieldBoundary.isValid ? std::max(0, theFieldBoundary.getBoundaryY(centerX)) : 0) &&
@@ -198,9 +193,9 @@ bool RealisticBallPerceptor::validatePerceptPreField(const RealisticBallPercept&
                 return false;
             }
         }
-        
-        
-        
+
+
+
         const int r = static_cast<int>(ball.radiusInImage);
         const int rDiagonal = r * 7 / 10; // approximately sin(45deg) = cos(45deg)
         int greenCounter = 0;
@@ -273,13 +268,10 @@ bool RealisticBallPerceptor::validatePerceptPreField(const RealisticBallPercept&
                 greenCounter++;
             }
         }
-        
+
         const float greenPart = (float)greenCounter / (float)checked;
         return greenPart < maxGreenThreshold || greenPart > minGreenThreshold;
     }
-    
+
     return false;
 }
-
-
-

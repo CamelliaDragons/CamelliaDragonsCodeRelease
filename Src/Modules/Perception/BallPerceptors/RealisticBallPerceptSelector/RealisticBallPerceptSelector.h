@@ -6,14 +6,9 @@
 #pragma once
 
 #include <unordered_set>
-//#include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Infrastructure/FrameInfo.h"
-//#include "Representations/Perception/BallPercept.h"
-//#include "Representations/Perception/PlayersPercept.h"
-//#include "Representations/Perception/RealisticBallPercepts.h"
 #include "Representations/Modeling/BallModel.h"
 #include "Representations/Modeling/ObstacleModel.h"
-
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Perception/BallPercepts/BallPercept.h"
 #include "Representations/Perception/PlayersPercepts/PlayersPercept.h"

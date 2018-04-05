@@ -27,7 +27,7 @@ MAKE_MODULE(PkGoalieBallPerceptor, perception)
 
 void PkGoalieBallPerceptor::update(RealisticBallPercepts& ballPercepts)
 {
-	if(che==false){
+	if(chk==false){
     	string configDirectory;
 		char currentWorkingDirectory[1024];
 
@@ -40,7 +40,8 @@ void PkGoalieBallPerceptor::update(RealisticBallPercepts& ballPercepts)
 			configDirectory = configDirectory.substr(0,configDirectory.rfind("/")) + "/";
 			configDirectory = configDirectory + "Cascade/";
 		}
-		else configDirectory = "Config/Cascade/";
+		else
+            configDirectory = "Config/Cascade/";
 		ball_upper_cascade = configDirectory + "cascade.xml";
 		ball_lower_cascade = configDirectory + "cascade.xml";
 
@@ -49,10 +50,9 @@ void PkGoalieBallPerceptor::update(RealisticBallPercepts& ballPercepts)
 		pMOG2 = createBackgroundSubtractorMOG2();
     	Flag_sub = false;
     	Flag_re = false;
-		che=true;
-		    
-    }
+		chk = true;
 
+    }
 
 
   const float minDistanceFromLineSquared = sqr(minDistanceFromLine);
@@ -65,195 +65,186 @@ void PkGoalieBallPerceptor::update(RealisticBallPercepts& ballPercepts)
 
 		if(info.graph.at(4).state == "BGsub")
 		{
-      Flag_sub = true;
-      if(theCameraInfo.camera == CameraInfo::Camera::lower) 
-      {
- 
-  			Frame++;
+            Flag_sub = true;
+            if(theCameraInfo.camera == CameraInfo::Camera::lower)
+            {
+  		        Frame++;
+  			    int downSize=2;
+  			    if(Frame < 5)
+  			    {
+      				BasePosition_x = theBallPercept.positionInImage.x();
+      				BasePosition_y = theBallPercept.positionInImage.y();
+      				BasePosition_r = theBallPercept.radiusInImage;
+  			    }
 
-  			int downSize=2;
+			    Mat gray_img((theCameraInfo.height-(int)BasePosition_y)/downSize+1, theCameraInfo.width/downSize+1, CV_8UC1);
 
+  			    for(unsigned short x = 0; x < theCameraInfo.width; x=(unsigned short)(x+downSize))
+  			    {
+  				    for(unsigned short y = (unsigned short)BasePosition_y; y < theCameraInfo.height;
+                    y = (unsigned short)(y+downSize))
+  				    {
+  					    unsigned char Y;
+  					    Image::Pixel current = theImage.getFullSizePixel(y, x);
+  					    Y = (unsigned char)current.y;
 
-  			if(Frame < 5)
-  			{
-  				BasePosition_x = theBallPercept.positionInImage.x();
-  				BasePosition_y = theBallPercept.positionInImage.y();
-  				BasePosition_r = theBallPercept.radiusInImage;
-  			}
-  
-  			Mat gray_img((theCameraInfo.height-(int)BasePosition_y)/downSize+1, theCameraInfo.width/downSize+1, CV_8UC1);
+  					    gray_img.at<uchar>((y-(int)BasePosition_y)/downSize,x/downSize)=Y;
+  		 		    }
+  		    	}
 
-  			for(unsigned short x = 0; x < theCameraInfo.width; x=(unsigned short)(x+downSize))
-  			{
-  				for(unsigned short y = (unsigned short)BasePosition_y; y < theCameraInfo.height; y=(unsigned short)(y+downSize))
-  				{
-  					unsigned char Y/*, Cr, Cb*/;
-  					Image::Pixel current = theImage.getFullSizePixel(y, x);
-  					Y=(unsigned char)current.y;
+  			    Mat foreGroundMask;
 
-  					gray_img.at<uchar>((y-(int)BasePosition_y)/downSize,x/downSize)=Y;
-  				}
-  			}
+                if(Flag_re)
+                {
+                    Flag_re = false;
+                }
 
-  			Mat foreGroundMask;
+                try
+                {
+                    pMOG2->apply(gray_img, foreGroundMask);
+                }
+                catch(char *str)
+                {
+                }
 
-        if(Flag_re)
-        {
-          Flag_re = false;
-        }
+  			    Mat bin;
+  			    threshold(foreGroundMask, bin, 250, 255, THRESH_BINARY);
 
-        try
-        {
-        pMOG2->apply(gray_img, foreGroundMask);
-        }
-        catch(char *str)
-        {
+  	  	        Mat Label_img, stats, centroids;
+  	  	        int nLab = connectedComponentsWithStats(bin, Label_img, stats, centroids);
 
-        }
+    		    int max_area = 0, max_num = 0;
+    		    for(int j = 1; j < nLab; ++j)
+    		    {
+    		   	    int *param = stats.ptr<int>(j);
 
-  			Mat bin;
-  			threshold(foreGroundMask, bin, 250, 255, THRESH_BINARY);
+    			    if(max_area < param[cv::ConnectedComponentsTypes::CC_STAT_AREA])
+    			    {
+    			   	    max_area = param[cv::ConnectedComponentsTypes::CC_STAT_AREA];
+    				    max_num = j;
+    			    }
+    		    }
 
+      	  	    float pr = sqrtf(float(max_area / M_PI));
 
-  	  	Mat Label_img, stats, centroids;
-  	  	int nLab = connectedComponentsWithStats(bin, Label_img, stats, centroids);
+  			    if(max_area > 200 && max_area < 500)
+                {
+				    RealisticBallPercept ball;
+	   	            ball.BSball = true;
 
-
-    		int max_area = 0, max_num = 0;
-    		for(int j = 1; j < nLab; ++j)
-    		{
-    			int *param = stats.ptr<int>(j);
-
-
-    			if(max_area < param[cv::ConnectedComponentsTypes::CC_STAT_AREA])
-    			{
-    				max_area = param[cv::ConnectedComponentsTypes::CC_STAT_AREA];
-    				max_num = j;
-    			}
-    		}
-
-
-  	  	float pr = sqrtf(float(max_area / M_PI));
-
-  			if(max_area > 200 && max_area < 500)
-        {
-				RealisticBallPercept ball;
-				ball.BSball = true;
+          		   	double *param = centroids.ptr<double>(max_num);
+          		   	int px = static_cast<int>(param[0]);
+          		   	int py = static_cast<int>(param[1]);
 
 
-  		   	double *param = centroids.ptr<double>(max_num);
-  		   	int px = static_cast<int>(param[0]);
-  		   	int py = static_cast<int>(param[1]);
+  		  	        ball.positionInImage.x() = px*downSize;
+      				ball.positionInImage.y() = static_cast<float>(py*downSize + BasePosition_y);
+      				ball.radiusInImage = pr*downSize;
 
 
-  		  	ball.positionInImage.x() = px*downSize;
-  				ball.positionInImage.y() = static_cast<float>(py*downSize + BasePosition_y);
-  				ball.radiusInImage = pr*downSize;
+                    validatePerceptPreField(ball);
+                    calculateBallOnField(ball);
+                    validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
+                    ballPercepts.balls.push_back(ball);
 
+  	  	        }
+  	  	        else
+  	  	        {
+  				    RealisticBallPercept ball;
+  	  	   	        ball.positionInImage.x() = theBallPercept.positionInImage.x();
+  			        ball.positionInImage.y() = theBallPercept.positionInImage.y();
+  			        ball.radiusInImage = theBallPercept.radiusInImage;
 
-          validatePerceptPreField(ball);
-          calculateBallOnField(ball);
-          validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
-          ballPercepts.balls.push_back(ball);
+  				    validatePerceptPreField(ball);
+         	        calculateBallOnField(ball);
+       	            validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
+                    ballPercepts.balls.push_back(ball);
 
-  	  	}
-  	  	else 
-  	  	{
-  				RealisticBallPercept ball;
-  	  		ball.positionInImage.x() = theBallPercept.positionInImage.x();
-  			  ball.positionInImage.y() = theBallPercept.positionInImage.y();
-  			  ball.radiusInImage = theBallPercept.radiusInImage;
+  				    LINE("module:RealisticBallPerceptor:square", ball.positionInImage.x() - ball.radiusInImage , ball.positionInImage.y(), ball.positionInImage.x() + ball.radiusInImage , ball.positionInImage.y(), 3 , Drawings::solidPen, ColorRGBA::yellow);
+  				    LINE("module:RealisticBallPerceptor:square", ball.positionInImage.x() , ball.positionInImage.y() - ball.radiusInImage, ball.positionInImage.x(), ball.positionInImage.y() + ball.radiusInImage, 3 , Drawings::solidPen, ColorRGBA::yellow);
+  		   	    }
 
-  				validatePerceptPreField(ball);
-         	calculateBallOnField(ball);
-       	  validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
-          ballPercepts.balls.push_back(ball);
-
-  				LINE("module:RealisticBallPerceptor:square", ball.positionInImage.x() - ball.radiusInImage , ball.positionInImage.y(), ball.positionInImage.x() + ball.radiusInImage , ball.positionInImage.y(), 3 , Drawings::solidPen, ColorRGBA::yellow);
-  				LINE("module:RealisticBallPerceptor:square", ball.positionInImage.x() , ball.positionInImage.y() - ball.radiusInImage, ball.positionInImage.x(), ball.positionInImage.y() + ball.radiusInImage, 3 , Drawings::solidPen, ColorRGBA::yellow);
-  			}
-
-      }
-      else 
-      {
-      }
+            }
+            else
+            {
+            }
 		}
 
-		else 
+		else
 		{
-		  if(Flag_sub) 
-		  {
-		    Frame = 0; 
+		    if(Flag_sub)
+		    {
+		        Frame = 0;
 
-			pMOG2 = createBackgroundSubtractorMOG2();
+			    pMOG2 = createBackgroundSubtractorMOG2();
 
-		    Flag_sub = false;
-		    Flag_re = true;
-		  }
+		        Flag_sub = false;
+		        Flag_re = true;
+		    }
 
-   		for(const Boundaryi& region : theBallRegions.regions)
-  		{
-  			int RegionL = std::max((int(-region.x.getSize()*magnification+region.x.min+region.x.max)/2), 0);
-  			int RegionR = std::min((int(region.x.getSize()*magnification+region.x.min+region.x.max)/2), theCameraInfo.width-1);
-  			int RegionT = std::max((int(-region.y.getSize()*magnification+region.y.min+region.y.max)/2), 0);
-  			int RegionB = std::min((int(region.y.getSize()*magnification+region.y.min+region.y.max)/2), theCameraInfo.height-1);
-  			int BlackCount = 0;
-  			LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionR , RegionT, 1 , Drawings::solidPen, ColorRGBA::blue);
-  			LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionL , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
-  			LINE("module:RealisticBallPerceptor:square", RegionR , RegionT, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
-  			LINE("module:RealisticBallPerceptor:square", RegionL , RegionB, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
+       		for(const Boundaryi& region : theBallRegions.regions)
+      		{
+      			int RegionL = std::max((int(-region.x.getSize()*magnification+region.x.min+region.x.max)/2), 0);
+      			int RegionR = std::min((int(region.x.getSize()*magnification+region.x.min+region.x.max)/2), theCameraInfo.width-1);
+      			int RegionT = std::max((int(-region.y.getSize()*magnification+region.y.min+region.y.max)/2), 0);
+      			int RegionB = std::min((int(region.y.getSize()*magnification+region.y.min+region.y.max)/2), theCameraInfo.height-1);
+      			int BlackCount = 0;
+      			LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionR , RegionT, 1 , Drawings::solidPen, ColorRGBA::blue);
+      			LINE("module:RealisticBallPerceptor:square", RegionL , RegionT, RegionL , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
+      			LINE("module:RealisticBallPerceptor:square", RegionR , RegionT, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
+      			LINE("module:RealisticBallPerceptor:square", RegionL , RegionB, RegionR , RegionB, 1 , Drawings::solidPen, ColorRGBA::blue);
 
-  			Mat src_img(RegionB-RegionT, RegionR-RegionL, CV_8UC3);
-  			Mat src_BGR;
+      			Mat src_img(RegionB-RegionT, RegionR-RegionL, CV_8UC3);
+      			Mat src_BGR;
 
-  			for(unsigned short x = (unsigned short)RegionL; x < RegionR; x++)
-  			{
-  				for(unsigned short y = (unsigned short)RegionT; y < RegionB; y++)
-  				{
-  				  if(theECImage.colored[y][x]==FieldColors::black)
-  			    BlackCount ++;
+      			for(unsigned short x = (unsigned short)RegionL; x < RegionR; x++)
+      			{
+      				for(unsigned short y = (unsigned short)RegionT; y < RegionB; y++)
+      				{
+      				  if(theECImage.colored[y][x]==FieldColors::black)
+      			    BlackCount ++;
 
-  				  unsigned char Y, Cr, Cb;
-  				  Image::Pixel current = theImage.getFullSizePixel(y, x);
-  				  Y=(unsigned char)current.y;
-  				  Cr=(unsigned char)current.cr;
-  				  Cb=(unsigned char)current.cb;
+      				  unsigned char Y, Cr, Cb;
+      				  Image::Pixel current = theImage.getFullSizePixel(y, x);
+      				  Y=(unsigned char)current.y;
+      				  Cr=(unsigned char)current.cr;
+      				  Cb=(unsigned char)current.cb;
 
-  				  src_img.at<Vec3b>(y-RegionT,x-RegionL)=Vec3b(Y,Cr,Cb);
-  				}
-  			}
+      				  src_img.at<Vec3b>(y-RegionT,x-RegionL)=Vec3b(Y,Cr,Cb);
+      				}
+      			}
 
-  			vector<Rect>BALL;
-  			cvtColor(src_img, src_BGR, CV_YCrCb2BGR);
-  			upper_cascade.detectMultiScale(src_BGR, BALL);
-  			vector<cv::Rect>::const_iterator iter = BALL.begin();
-  			RealisticBallPercept ball;
-  			while(iter!=BALL.end())
-  			{
-  				int CenterX = RegionL + iter->x + iter->width/2;
-  				int CenterY = RegionT + iter->y + iter->height/2;
+      			vector<Rect>BALL;
+      			cvtColor(src_img, src_BGR, CV_YCrCb2BGR);
+      			upper_cascade.detectMultiScale(src_BGR, BALL);
+      			vector<cv::Rect>::const_iterator iter = BALL.begin();
+      			RealisticBallPercept ball;
+      			while(iter!=BALL.end())
+      			{
+      				int CenterX = RegionL + iter->x + iter->width/2;
+      				int CenterY = RegionT + iter->y + iter->height/2;
 
-  				if(theCameraInfo.camera == CameraInfo::Camera::lower)
-  			    LowerBall = true;
+      				if(theCameraInfo.camera == CameraInfo::Camera::lower)
+      			    LowerBall = true;
 
-  				ball.positionInImage.x() = CenterX;
-  				ball.positionInImage.y() = CenterY;
-  				ball.radiusInImage = iter->height - iter->width > 0 ? iter->width/2: iter->height/2;
+      				ball.positionInImage.x() = CenterX;
+      				ball.positionInImage.y() = CenterY;
+      				ball.radiusInImage = iter->height - iter->width > 0 ? iter->width/2: iter->height/2;
 
-  				validatePerceptPreField(ball);
-     	    calculateBallOnField(ball);
-     	    validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
+      				validatePerceptPreField(ball);
+         	        calculateBallOnField(ball);
+         	        validatePerceptPostField(ball, minDistanceFromLineSquared, centerCircleRadiusSquared);
 
-  				ballPercepts.balls.push_back(ball);
-  				++iter;
-  			}
-  		}
-    }
+      				ballPercepts.balls.push_back(ball);
+      				++iter;
+      			}
+  		    }
+        }
 	}
-  else 
-  {
-    Flag_sub = false;
-  }
+    else
+    {
+        Flag_sub = false;
+    }
 }
 
 

@@ -31,12 +31,12 @@ void RealisticBallPerceptSelector::update(BallPercept& ballPercept)
   updateRobots();
 
   ballPercept.status = BallPercept::notSeen;
-  const float maxDistanceFromLastModelSquared = maxDistanceFromLastModel * maxDistanceFromLastModel;
+  //const float maxDistanceFromLastModelSquared = maxDistanceFromLastModel * maxDistanceFromLastModel;
   const float robotFrontDisplacementSquared = robotFrontDisplacement * robotFrontDisplacement;
   float minDistance = FLT_MAX;
   for(const RealisticBallPercept& percept : theRealisticBallPercepts.balls)
   {
-  
+
   	if(percept.BSball)
 	{
 		const float distance = percept.relativePositionOnField.squaredNorm();
@@ -50,7 +50,7 @@ void RealisticBallPerceptSelector::update(BallPercept& ballPercept)
         goto nextPercept;
 
 	}
-	
+
     if(theFieldDimensions.fieldBorder.isInside(percept.absolutePositionOnField))
     {
       const float ballStart = Angle::normalize(Approx::atan2(percept.relativePositionOnField.y() + percept.radiusOnField, percept.relativePositionOnField.x()));
@@ -62,9 +62,9 @@ void RealisticBallPerceptSelector::update(BallPercept& ballPercept)
            p.y1 <= percept.positionInImage.y() + percept.radiusInImage &&
            p.y2 >= percept.positionInImage.y() - percept.radiusInImage)
         {
-	DRAWTEXT("module:RealisticBallPerceptor:notseen",percept.positionInImage.x(), percept.positionInImage.y(), 7, ColorRGBA::red, "InImage");
+	      DRAWTEXT("module:RealisticBallPerceptor:notseen",percept.positionInImage.x(), percept.positionInImage.y(), 7, ColorRGBA::red, "InImage");
           goto nextPercept;
-	 
+
 
         }
       }
@@ -72,7 +72,7 @@ void RealisticBallPerceptSelector::update(BallPercept& ballPercept)
       {
         if(percept.relativePositionOnField.squaredNorm() >= r.distance - robotFrontDisplacementSquared && ballEnd >= r.start && ballStart <= r.end)
         {
-	DRAWTEXT("module:RealisticBallPerceptor:notseen",percept.positionInImage.x(), percept.positionInImage.y(), 7, ColorRGBA::red, "RobotDis");
+	        DRAWTEXT("module:RealisticBallPerceptor:notseen",percept.positionInImage.x(), percept.positionInImage.y(), 7, ColorRGBA::red, "RobotDis");
           goto nextPercept;
         }
       }
@@ -86,11 +86,12 @@ void RealisticBallPerceptSelector::update(BallPercept& ballPercept)
         minDistance = distance;
         ballPercept.positionInImage = percept.positionInImage;
         ballPercept.radiusInImage = percept.radiusInImage;
-        //ballPercept.relativePositionOnField = percept.relativePositionOnField;
         ballPercept.positionOnField = percept.relativePositionOnField;
         ballPercept.radiusOnField = percept.radiusOnField;
         ballPercept.status = BallPercept::seen;
-      }else DRAWTEXT("module:RealisticBallPerceptor:notseen",percept.positionInImage.x(), percept.positionInImage.y(), 7, ColorRGBA::red, "lastingnow");
+      }
+      else
+        DRAWTEXT("module:RealisticBallPerceptor:notseen",percept.positionInImage.x(), percept.positionInImage.y(), 7, ColorRGBA::red, "lastingnow");
     }
 
   nextPercept:

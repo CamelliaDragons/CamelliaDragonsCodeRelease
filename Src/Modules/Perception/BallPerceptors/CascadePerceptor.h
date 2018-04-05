@@ -1,5 +1,5 @@
 /**
- * @file RealisticBallPerceptor.h
+ * @file CascadePerceptor.h
  * @author Felix Thielke
  */
 
@@ -30,7 +30,7 @@
 
 #define MAX_WINDOW_RADIUS 64
 
-MODULE(RealisticBallPerceptor,
+MODULE(CascadePerceptor,
 {,
   REQUIRES(BallRegions),
   REQUIRES(ECImage),
@@ -46,8 +46,7 @@ MODULE(RealisticBallPerceptor,
   REQUIRES(RealisticBallPercepts),
   PROVIDES(RealisticBallPercepts),
   DEFINES_PARAMETERS(
-  {
-    ,
+  {,
     (bool)(true) validatePre,
     (bool)(true) validateFieldRadius,
     (bool)(true) validatePost,
@@ -63,31 +62,26 @@ MODULE(RealisticBallPerceptor,
   }),
 });
 
-class RealisticBallPerceptor : public RealisticBallPerceptorBase
+class CascadePerceptor : public CascadePerceptorBase
 {
 cv::CascadeClassifier upper_cascade;
 cv::CascadeClassifier lower_cascade;
 std::string ball_upper_cascade;
 std::string ball_lower_cascade;
 
-
-
 float magnification_upper = 2.0f;
 float magnification_lower = 2.0f;
-bool che = false;
+bool chk = false;
 bool LowerBall = false;
 
 private:
 
   void update(RealisticBallPercepts& ballPercepts);
 
-
   void cleanup();
 
- 
   bool validatePerceptPreField(const RealisticBallPercept& ballPercept) const;
   bool calculateBallOnField(RealisticBallPercept& ballPercept) const;
   bool validatePerceptPostField(const RealisticBallPercept& ballPercept, float minDistanceFromLineSquared, float centerCircleRadiusSquared) const;
-
 
 };
