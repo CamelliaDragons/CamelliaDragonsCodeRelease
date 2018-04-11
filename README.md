@@ -1,9 +1,8 @@
-********************************************************************************
-Camellia Dragons Code Release 2017
+********************************************************************************Camellia Dragons Code Release 2017
 ********************************************************************************
 Camellia Dragons Code Release 2017 was basically developed based on B-Human Code Release 2016 (https://github.com/bhuman/BHumanCodeRelease).
 
-Two modules of RealisticBallPerceptor and PkGoalieBallPerceptor were developped under B-Human Code Release 2015 (https://github.com/bhuman/BHumanCodeRelease).
+Three major modules of Priority, CascadePerceptor and PkGoalieBallPerceptor were developped under B-Human Code Release 2015 (https://github.com/bhuman/BHumanCodeRelease).
 
 When you build the system you might receive some warnings. 
 But it will work without any problems. 
