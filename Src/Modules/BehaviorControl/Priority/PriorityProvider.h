@@ -7,8 +7,10 @@
 #include "Representations/Infrastructure/RobotInfo.h"
 #include "Representations/Communication/TeammateData.h"
 #include "Representations/Modeling/BallModel.h"
+#include "Representations/Modeling/RobotPose.h"
 #include "Representations/BehaviorControl/Priority.h"
 #include "Tools/Module/Module.h"
+
 
 
 MODULE(PriorityProvider,
@@ -18,6 +20,7 @@ MODULE(PriorityProvider,
   REQUIRES(RobotInfo),
   REQUIRES(TeammateData),
   REQUIRES(BallModel),
+  REQUIRES(RobotPose),
   PROVIDES(Priority),
 });
 
